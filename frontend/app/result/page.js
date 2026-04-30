@@ -239,23 +239,27 @@ export default function ResultPage() {
     <main className="page-wrap">
       <section className="card result-page-shell">
         <BrandHeader subtitle="Your strategic report is ready." />
-        <div className="result-summary-panel">
-          <h2 className="section-title">PROJECT OBSIDIAN DIAGNOSIS</h2>
+        <div className="result-summary-panel hud-frame">
+          <div className="result-hud-topbar">
+            <span className="hud-chip">MISSION REPORT</span>
+            <span className="hud-chip hud-chip-accent">PROJECT OBSIDIAN</span>
+          </div>
+          <h2 className="section-title">TACTICAL DIAGNOSIS BOARD</h2>
           <div className="result-summary-grid">
             <div className="summary-item">
-              <p className="summary-label">Score</p>
+              <p className="summary-label">Combat Score</p>
               <p className="summary-value">{result.score} / 170</p>
             </div>
             <div className="summary-item">
-              <p className="summary-label">Designation</p>
+              <p className="summary-label">Current Rank</p>
               <p className="summary-value">{result.designation || result.category}</p>
             </div>
             <div className="summary-item">
-              <p className="summary-label">Archetype</p>
+              <p className="summary-label">Operator Archetype</p>
               <p className="summary-value">{result.archetype}</p>
             </div>
             <div className="summary-item">
-              <p className="summary-label">Detected Virus</p>
+              <p className="summary-label">Critical Weakness</p>
               <p className="summary-value">{result.fatal_flaw}</p>
             </div>
           </div>
