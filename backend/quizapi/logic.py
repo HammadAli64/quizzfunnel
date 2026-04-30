@@ -47,32 +47,53 @@ ARCHETYPE_BY_Q5_OPTION = {
     "C": "System Architect",
     "D": "Ghost Architect",
 }
+# Canonical virus labels shown in UI/report and mapped to Shield logic.
 FATAL_FLAW_BY_QUESTION_OPTION = {
+    1: {
+        "A": "The Slow Burner/Low Energy",
+        "B": "Employee Mindset/Fear",
+        "C": "The Chaos Agent/No Map",
+        "D": "The Loner/No Trust",
+    },
+    3: {
+        "A": "Inconsistency/Analysis Paralysis",
+        "B": "The Victim/Guru Trauma",
+        "C": "The Amateur/Scaling Ceiling",
+        "D": "The Visionary/No Structure",
+    },
     8: {
-        "A": "The Magic Pill",
-        "B": "The Financial Leak",
-        "C": "Analysis Paralysis",
-        "D": "Crabs in a Bucket",
+        "A": "Inconsistency/Analysis Paralysis",
+        "B": "The Spender/Status Trap",
+        "C": "Inconsistency/Analysis Paralysis",
+        "D": "The Loner/No Trust",
     },
     9: {
-        "A": "Lack of Consistency",
-        "B": "Fear of Persuasion",
-        "C": "Technical Illiteracy",
-        "D": "High Readiness",
+        "A": "The Slow Burner/Low Energy",
+        "B": "The Order Taker/No Sales",
+        "C": "The Amateur/Scaling Ceiling",
+        "D": None,  # High readiness signal, not a virus.
     },
     10: {
-        "A": "The Loner",
-        "B": "The Spender",
-        "C": "The Amateur",
-        "D": "The Visionary",
+        "A": "The Loner/No Trust",
+        "B": "The Spender/Status Trap",
+        "C": "The Amateur/Scaling Ceiling",
+        "D": "The Visionary/No Structure",
+    },
+    11: {
+        "A": "Employee Mindset/Fear",
+        "B": "The Spender/Status Trap",
+        "C": "The Loner/No Trust",
+        "D": "The Chaos Agent/No Map",
     },
     16: {
-        "A": "The Order Taker",
-        "B": "Identity Crisis",
-        "C": "The Slow Burner",
-        "D": "The Specialist",
+        "A": "The Order Taker/No Sales",
+        "B": "Identity Crisis/Fraud",
+        "C": "The Slow Burner/Low Energy",
+        "D": "Emotional/Reactive",
     },
 }
+
+HIGH_STAKES_DIAGNOSTIC_IDS = {10}
 
 
 def compute_score(answers: list[dict]) -> int:
@@ -137,20 +158,47 @@ def detect_archetype(answers: list[dict]) -> str:
 
 
 def detect_fatal_flaw(answers: list[dict]) -> str:
-    diagnostic_question_ids = {8, 9, 10, 16}
+    diagnostic_question_ids = set(FATAL_FLAW_BY_QUESTION_OPTION.keys())
+    weighted_scores: dict[str, int] = {}
+    frequency: dict[str, int] = {}
 
-    top_flaw = "Analysis Paralysis"
-    top_score = -1
     for item in answers:
-        if item["question_id"] not in diagnostic_question_ids:
+        question_id = item["question_id"]
+        if question_id not in diagnostic_question_ids:
             continue
-        letter = item["selected_option"]
-        points = SCORE_MAP[letter]
-        tag = FATAL_FLAW_BY_QUESTION_OPTION.get(item["question_id"], {}).get(letter, "Unknown")
-        if points > top_score:
-            top_score = points
-            top_flaw = tag
-    return top_flaw
+
+        letter = item.get("selected_option")
+        if letter not in SCORE_MAP:
+            continue
+
+        virus = FATAL_FLAW_BY_QUESTION_OPTION.get(question_id, {}).get(letter)
+        if not virus:
+            continue
+
+        frequency[virus] = frequency.get(virus, 0) + 1
+
+        # Pattern recognition + intensity weighting.
+        # Repeated virus admissions dominate, while high-point options and
+        # high-stakes diagnostic prompts (like Q10) get extra influence.
+        weight = 1 + SCORE_MAP[letter]
+        if question_id in HIGH_STAKES_DIAGNOSTIC_IDS:
+            weight += 6
+        weighted_scores[virus] = weighted_scores.get(virus, 0) + weight
+
+    if not weighted_scores:
+        return "Inconsistency/Analysis Paralysis"
+
+    priority_order = list(SHIELD_BY_VIRUS.keys())
+    ranked = sorted(
+        weighted_scores.keys(),
+        key=lambda virus: (
+            weighted_scores[virus],
+            frequency.get(virus, 0),
+            -priority_order.index(virus) if virus in priority_order else -9999,
+        ),
+        reverse=True,
+    )
+    return ranked[0]
 
 
 def get_recommended_shield(fatal_flaw: str) -> str:
