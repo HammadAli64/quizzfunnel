@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 
+import dj_database_url
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -8,8 +9,8 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-only-secret-key")
-DEBUG = True
-ALLOWED_HOSTS = ["*"]
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "*").split(",") if host.strip()]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -54,10 +55,11 @@ WSGI_APPLICATION = "django_backend.wsgi.application"
 ASGI_APPLICATION = "django_backend.asgi.application"
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "data" / "quiz_funnel.db",
-    }
+    "default": dj_database_url.parse(
+        os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'data' / 'quiz_funnel.db'}"),
+        conn_max_age=600,
+        ssl_require=False,
+    )
 }
 
 AUTH_PASSWORD_VALIDATORS = []
@@ -68,8 +70,19 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+    if origin.strip()
 ]
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:3000").split(",")
+    if origin.strip()
+]
+
+# Required when running behind Railway's reverse proxy.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

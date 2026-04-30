@@ -1,4 +1,7 @@
 django
 django-cors-headers
+dj-database-url
+psycopg2-binary
+gunicorn
 python-dotenv
 openai

@@ -2,8 +2,8 @@
 
 Full-stack quiz funnel with:
 - Frontend: Next.js
-- Backend API: FastAPI (Python)
-- Database: SQLite
+- Backend API: Django
+- Database: SQLite (local) / PostgreSQL (Railway)
 - AI: OpenAI API
 
 ## Folder Structure
@@ -41,7 +41,7 @@ funnelquizz/
 └─ README.md
 ```
 
-## Backend Setup
+## Backend Setup (Local)
 
 ```bash
 cd backend
@@ -50,6 +50,13 @@ python -m venv .venv
 pip install -r requirements.txt
 copy .env.example .env
 uvicorn app.main:app --reload --port 8000
+```
+
+Use Django server:
+
+```bash
+python manage.py migrate
+python manage.py runserver 8000
 ```
 
 ## Frontend Setup
@@ -63,6 +70,26 @@ npm run dev
 
 Frontend: `http://localhost:3000`  
 Backend: `http://localhost:8000`
+
+## Railway Deployment (Backend + PostgreSQL)
+
+Set Railway service root to `backend` and set environment variables:
+
+- `OPENAI_API_KEY`
+- `DATABASE_URL` (Railway PostgreSQL connection URL)
+- `DJANGO_SECRET_KEY`
+- `DEBUG=False`
+- `ALLOWED_HOSTS=*`
+- `CORS_ALLOWED_ORIGINS=https://<your-frontend-domain>`
+- `CSRF_TRUSTED_ORIGINS=https://<your-frontend-domain>`
+
+Backend start command is defined in `backend/Procfile`:
+
+`web: python manage.py migrate && gunicorn django_backend.wsgi:application --bind 0.0.0.0:$PORT`
+
+For frontend deployment (Railway or Vercel), set:
+
+- `NEXT_PUBLIC_API_URL=https://<your-backend-domain>`
 
 ## API Endpoints
 
