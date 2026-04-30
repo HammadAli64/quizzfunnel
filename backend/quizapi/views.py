@@ -8,13 +8,13 @@ from django.views.decorators.http import require_GET, require_POST
 from app.quiz_data import QUIZ_QUESTIONS
 from .ai_service import generate_ai_report
 from .logic import (
-    ARCHETYPE_COURSE_MAP,
     compute_score,
     detect_archetype,
     detect_fatal_flaw,
     get_category,
     get_recommended_protocol,
     get_recommended_shield,
+    get_weapon_course,
 )
 from .models import QuizOption, QuizQuestion, Result, User
 
@@ -104,7 +104,7 @@ def submit_answers(request):
     designation = get_category(score)
     archetype = detect_archetype(normalized_answers)
     fatal_flaw = detect_fatal_flaw(normalized_answers)
-    weapon_course = ARCHETYPE_COURSE_MAP.get(archetype, "AI Agents and automated software bots.")
+    weapon_course = get_weapon_course(archetype, score, normalized_answers)
     shield_course = get_recommended_shield(fatal_flaw)
     protocol_course = get_recommended_protocol(designation)
     user_id = (email.split("@")[0] if email else name).upper().replace(" ", "_")

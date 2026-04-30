@@ -2,33 +2,44 @@ from app.quiz_data import QUIZ_QUESTIONS
 
 SCORE_MAP = {"A": 1, "B": 3, "C": 5, "D": 10}
 OPTION_INDEX_MAP = {"A": 0, "B": 1, "C": 2, "D": 3}
-ARCHETYPE_COURSE_MAP = {
-    "Ghost Architect": "AI Agents and automated software bots.",
-    "Attention Broker": "Faceless content and digital influence.",
-    "System Architect": "Global logistics and automated publishing.",
-    "Profit Raider": "Crypto markets and Blockchain loops.",
+ARCHETYPE_WEAPON_MATRIX = {
+    "Profit Raider": {
+        "entry": "Print On Demand / Affiliate Marketing",
+        "elite": "Crypto Trading (Technical Analysis)",
+    },
+    "Attention Broker": {
+        "entry": "Graphics Design (Canva) / WordPress Blog",
+        "elite": "Faceless YouTube AI / Unreal Engine",
+    },
+    "System Architect": {
+        "entry": "Kindle Publishing (KDP) / Prompt Engineering",
+        "elite": "A.I. Automations / Framer Crash Course",
+    },
+    "Ghost Architect": {
+        "entry": "Python Programming",
+        "elite": "A.I. Agents / React JS / Flutter / Solidity",
+    },
 }
 SHIELD_BY_VIRUS = {
-    "Analysis Paralysis": "Mastering Consistency",
-    "Lack of Consistency": "Mastering Consistency",
-    "Fear of Persuasion": "The 9 to 5 Exit Strategy",
-    "Technical Illiteracy": "Zero to One Million",
-    "The Amateur": "Zero to One Million",
-    "The Financial Leak": "The Compound Effect",
-    "The Spender": "The Compound Effect",
-    "The Loner": "The Art of Mastering Human Behavior",
-    "The Order Taker": "The Art of Business Persuasion",
-    "Identity Crisis": "The Secret To Transformation",
-    "The Slow Burner": "Hustle Hard",
-    "The Visionary": "The Business of Empire Building",
-    "The Magic Pill": "Syndicate Money Philosophy",
-    "Crabs in a Bucket": "Syndicate 13 Business Rules",
+    "Inconsistency/Analysis Paralysis": "Mastering Consistency",    
+    "Employee Mindset/Fear": "The 9 to 5 Exit Strategy",             
+    "The Chaos Agent/No Map": "Syndicate 13 Business Rules",           
+    "The Victim/Guru Trauma": "Syndicate Money Philosophy",           
+    "Technical Illiteracy": "Zero to One Million",                                              
+    "The Amateur/Scaling Ceiling": "Zero to One Million",             
+    "The Spender/Status Trap": "The Compound Effect",                
+    "Emotional/Reactive": "The Art of Critical Thinking",                       
+    "The Loner/No Trust": "The Art of Mastering Human Behavior",                             
+    "The Order Taker/No Sales": "The Art of Business Persuasion",                              
+    "Identity Crisis/Fraud": "The Secret To Transformation",           
+    "The Slow Burner/Low Energy": "Hustle Hard",
+    "The Visionary/No Structure": "The Business of Empire Building",
 }
 PROTOCOL_BY_DESIGNATION = {
-    "THE STREET SOLDIER": "The 9 to 5 Exit Strategy",
-    "THE ROGUE OPERATOR": "Syndicate 13 Business Rules",
-    "THE SYNDICATE SPECIALIST": "Zero to One Million",
-    "THE PROSPECT (EMPIRE TIER)": "The Business of Empire Building",
+    "THE STREET SOLDIER": "The Secret To Transformation",
+    "THE ROGUE OPERATOR": "The 9 to 5 Exit Strategy",
+    "THE SYNDICATE SPECIALIST": "The Art of Critical Thinking",
+    "THE PROSPECT (EMPIRE TIER)": "The Business of Empire",
 }
 ARCHETYPE_BY_Q5_OPTION = {
     "A": "Profit Raider",
@@ -143,8 +154,44 @@ def detect_fatal_flaw(answers: list[dict]) -> str:
 
 
 def get_recommended_shield(fatal_flaw: str) -> str:
-    return SHIELD_BY_VIRUS.get(fatal_flaw, "Syndicate 13 Business Rules")
+    normalized = (fatal_flaw or "").strip()
+    if normalized in SHIELD_BY_VIRUS:
+        return SHIELD_BY_VIRUS[normalized]
+    # Case-insensitive fallback to keep mapping stable with variant casing.
+    lowered = normalized.lower()
+    for key, value in SHIELD_BY_VIRUS.items():
+        if key.lower() == lowered:
+            return value
+    return "Syndicate 13 Business Rules"
 
 
 def get_recommended_protocol(designation: str) -> str:
     return PROTOCOL_BY_DESIGNATION.get(designation, "Syndicate 13 Business Rules")
+
+
+def _get_budget_tier_from_answers(answers: list[dict]) -> str | None:
+    for item in answers:
+        if item.get("question_id") != 14:
+            continue
+        letter = item.get("selected_option")
+        if letter in {"A", "B"}:
+            return "entry"
+        if letter in {"C", "D"}:
+            return "elite"
+    return None
+
+
+def get_weapon_course(archetype: str, score: int, answers: list[dict] | None = None) -> str:
+    mapping = ARCHETYPE_WEAPON_MATRIX.get(archetype)
+    if not mapping:
+        return "Python Programming"
+
+    # Primary ammunition filter: Q14 (War Chest / Liquid Capital).
+    budget_tier = _get_budget_tier_from_answers(answers or [])
+    if budget_tier in {"entry", "elite"}:
+        return mapping[budget_tier]
+
+    # Fallback by power-level score brackets.
+    # Street Soldier + Rogue Operator => entry-tier weapon.
+    # Syndicate Specialist + Prospect => elite-tier weapon.
+    return mapping["entry"] if score <= 100 else mapping["elite"]
