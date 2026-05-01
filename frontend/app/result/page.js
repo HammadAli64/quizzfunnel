@@ -153,71 +153,288 @@ export default function ResultPage() {
     const maxTextWidth = pageWidth - margin * 2;
     let y = margin;
 
+    const COLORS = {
+      bg: [6, 10, 20],
+      panel: [10, 18, 34],
+      line: [76, 209, 255],
+      lineAccent: [171, 107, 255],
+      text: [220, 237, 255],
+      white: [245, 250, 255],
+      muted: [140, 162, 196],
+      gold: [217, 176, 71],
+      cyan: [76, 209, 255],
+      magenta: [171, 107, 255],
+    };
+
+    const paintPageBackground = () => {
+      doc.setFillColor(...COLORS.bg);
+      doc.rect(0, 0, pageWidth, pageHeight, "F");
+      doc.setFillColor(...COLORS.panel);
+      doc.rect(margin - 18, margin - 18, pageWidth - (margin - 18) * 2, pageHeight - (margin - 18) * 2, "F");
+      doc.setDrawColor(...COLORS.line);
+      doc.setLineWidth(1);
+      doc.rect(margin - 18, margin - 18, pageWidth - (margin - 18) * 2, pageHeight - (margin - 18) * 2, "S");
+      doc.setDrawColor(...COLORS.lineAccent);
+      doc.setLineWidth(0.6);
+      doc.line(margin - 18, margin - 8, pageWidth - margin + 18, margin - 8);
+      doc.line(margin - 18, pageHeight - margin + 8, pageWidth - margin + 18, pageHeight - margin + 8);
+    };
+
+    paintPageBackground();
+
     try {
       const logoDataUrl = await loadLogoDataUrl();
       const logoWidth = 170;
       const logoHeight = 70;
       const logoX = (pageWidth - logoWidth) / 2;
       doc.addImage(logoDataUrl, "PNG", logoX, y, logoWidth, logoHeight);
-      y += logoHeight + 10;
+      y += logoHeight + 22;
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.setTextColor(190, 153, 46);
+      doc.setTextColor(...COLORS.gold);
       doc.text("MONEY • POWER • FREEDOM • HONOUR", pageWidth / 2, y, { align: "center" });
       y += 26;
     } catch {
       // Continue PDF generation even if logo load fails.
     }
 
-    const addLine = (text, fontSize = 12, style = "normal", color = [25, 38, 66], extraGap = 6) => {
+    const addLine = (text, fontSize = 12, style = "normal", color = COLORS.text, extraGap = 6, kind = "normal") => {
       doc.setFont("helvetica", style);
       doc.setFontSize(fontSize);
       doc.setTextColor(color[0], color[1], color[2]);
       const wrapped = doc.splitTextToSize(text, maxTextWidth);
-      const blockHeight = wrapped.length * (fontSize + 4);
+      const lineHeight = fontSize + 5;
+      const blockHeight = wrapped.length * lineHeight;
+      const requiredHeight = blockHeight + (kind !== "normal" ? 14 : 0);
       if (y + blockHeight > pageHeight - margin) {
         doc.addPage();
+        paintPageBackground();
         y = margin;
+      }
+      if (kind === "section" && y + requiredHeight > pageHeight - margin - 30) {
+        doc.addPage();
+        paintPageBackground();
+        y = margin;
+      }
+      if (kind !== "normal") {
+        const boxHeight = blockHeight + 6;
+        if (kind === "section") {
+          doc.setFillColor(17, 31, 56);
+          doc.setDrawColor(...COLORS.gold);
+        } else if (kind === "course") {
+          doc.setFillColor(20, 18, 10);
+          doc.setDrawColor(...COLORS.gold);
+        } else {
+          doc.setFillColor(12, 22, 40);
+          doc.setDrawColor(...COLORS.cyan);
+        }
+        doc.setLineWidth(0.7);
+        doc.roundedRect(margin - 6, y - fontSize + 2, maxTextWidth + 12, boxHeight, 6, 6, "FD");
       }
       doc.text(wrapped, margin, y);
       y += blockHeight + extraGap;
     };
 
-    addLine("THE SOVEREIGN ENTITY AUDIT: PROJECT OBSIDIAN", 18, "bold", [190, 153, 46], 10);
-    addLine("Personalized Strategic Report", 11, "normal", [88, 102, 129]);
-    y += 4;
+    const addNewPage = () => {
+      doc.addPage();
+      paintPageBackground();
+      y = margin;
+    };
 
-    addLine(`Score: ${result.score} / 170`, 12, "bold");
-    addLine(`Designation: ${result.designation || result.category}`, 12, "bold");
-    addLine(`Archetype: ${result.archetype}`, 12, "bold");
-    addLine(`Recommended Track: ${resolvedTrack}`, 12, "bold");
-    addLine(`Detected Virus: ${result.fatal_flaw}`, 12, "bold");
-    y += 10;
+    const drawSectionCard = (sectionTitle, lines) => {
+      const textLeft = margin + 10;
+      const isFinalDirectiveSection = sectionTitle.startsWith("Section D");
+      const rowFontSize = isFinalDirectiveSection ? 12 : 13;
+      const rowLineAdvance = isFinalDirectiveSection ? 16 : 18;
+      const rowGap = isFinalDirectiveSection ? 4 : 5;
+      const innerWidth = maxTextWidth - (isFinalDirectiveSection ? 44 : 38);
+      const splitHeadingPrefix = (line) => {
+        const prefixes = ["THE STING:", "THE DIAGNOSIS:", "URGENCY OVERRIDE:"];
+        const match = prefixes.find((prefix) => line.startsWith(prefix));
+        if (!match) return null;
+        return {
+          label: match,
+          value: line.slice(match.length).trim(),
+        };
+      };
+      const wrappedLines = lines.map((line) => {
+        const isHeading = /^(\d+\.\sTHE\s|STATUS:|ARCHETYPE:|ANALYSIS:|DETECTED VIRUS:|THE STING:|THE DIAGNOSIS:|URGENCY OVERRIDE:|WARNING:)/.test(
+          line
+        );
+        const isCourse = line.startsWith("• Course:");
+        const isWhy = line.startsWith("• Why:");
+        const splitLabel = splitHeadingPrefix(line);
+        return {
+          line,
+          wrapped: doc.splitTextToSize(line, innerWidth),
+          isHeading,
+          isCourse,
+          isWhy,
+          splitLabel,
+        };
+      });
+
+      const contentHeight =
+        wrappedLines.reduce((sum, row) => sum + row.wrapped.length * rowLineAdvance + rowGap, 0) + 22;
+      const cardHeight = 36 + contentHeight;
+      const cardX = margin - 6;
+      const cardW = maxTextWidth + 12;
+      let currentIndex = 0;
+      let firstChunk = true;
+
+      while (currentIndex < wrappedLines.length) {
+        const pageTopY = y - 14;
+        const titleBarHeight = 32;
+        const contentTopY = pageTopY + titleBarHeight + 8;
+        const availableBottomY = pageHeight - margin - 6;
+        let cursorY = contentTopY;
+        let endIndex = currentIndex;
+
+        while (endIndex < wrappedLines.length) {
+          const row = wrappedLines[endIndex];
+          const rowHeight = row.wrapped.length * rowLineAdvance + rowGap;
+          if (cursorY + rowHeight > availableBottomY) break;
+          cursorY += rowHeight;
+          endIndex += 1;
+        }
+
+        if (endIndex === currentIndex) {
+          addNewPage();
+          continue;
+        }
+
+        const cardHeightChunk = cursorY - pageTopY + 8;
+        doc.setFillColor(9, 16, 30);
+        doc.setDrawColor(...COLORS.line);
+        doc.setLineWidth(0.9);
+        doc.roundedRect(cardX, pageTopY, cardW, cardHeightChunk, 8, 8, "FD");
+        // Second border line for a proper double-line effect.
+        doc.setDrawColor(...COLORS.lineAccent);
+        doc.setLineWidth(0.55);
+        doc.roundedRect(cardX + 2, pageTopY + 2, cardW - 4, cardHeightChunk - 4, 7, 7, "S");
+
+        doc.setFillColor(18, 30, 54);
+        doc.setDrawColor(...COLORS.gold);
+        doc.roundedRect(cardX + 8, pageTopY + 8, cardW - 16, 24, 6, 6, "FD");
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+      doc.setTextColor(...COLORS.magenta);
+        doc.text(firstChunk ? sectionTitle : `${sectionTitle} (cont.)`, margin + 6, pageTopY + 26);
+
+        let sectionY = contentTopY + 6;
+        for (let i = currentIndex; i < endIndex; i += 1) {
+          const row = wrappedLines[i];
+          let color = COLORS.white;
+          if (row.isCourse) color = COLORS.gold;
+          else if (row.line.startsWith("WARNING:")) color = COLORS.magenta;
+          else if (
+            row.line.startsWith("ANALYSIS:") ||
+            row.line.startsWith("THE STING:") ||
+            row.line.startsWith("THE DIAGNOSIS:") ||
+            row.line.startsWith("URGENCY OVERRIDE:")
+          ) {
+            color = COLORS.white;
+          }
+          else if (row.isHeading) color = COLORS.cyan;
+          else if (row.isWhy) color = COLORS.white;
+
+          doc.setFont("helvetica", row.isHeading || row.isCourse ? "bold" : "normal");
+          doc.setFontSize(rowFontSize);
+          if (row.splitLabel) {
+            // Color heading label, keep value/body white.
+            const labelText = `${row.splitLabel.label} `;
+            doc.setTextColor(...COLORS.cyan);
+            doc.text(labelText, textLeft, sectionY);
+            const labelWidth = doc.getTextWidth(labelText);
+            doc.setTextColor(...COLORS.white);
+            const valueWrapped = doc.splitTextToSize(row.splitLabel.value, innerWidth - labelWidth);
+            if (valueWrapped.length > 0) {
+              doc.text(valueWrapped[0], textLeft + labelWidth, sectionY);
+            }
+            if (valueWrapped.length > 1) {
+              doc.text(valueWrapped.slice(1), textLeft, sectionY + rowLineAdvance);
+            }
+            sectionY += valueWrapped.length * rowLineAdvance + rowGap;
+          } else {
+            doc.setTextColor(...color);
+            doc.text(row.wrapped, textLeft, sectionY);
+            sectionY += row.wrapped.length * rowLineAdvance + rowGap;
+          }
+        }
+
+        y = pageTopY + cardHeightChunk + 16;
+        currentIndex = endIndex;
+        firstChunk = false;
+        if (currentIndex < wrappedLines.length) addNewPage();
+      }
+    };
+
+    const drawSummaryCard = () => {
+      const summaryLines = [
+        { label: "Score:", value: `${result.score} / 170` },
+        { label: "Designation:", value: `${result.designation || result.category}` },
+        { label: "Archetype:", value: `${result.archetype}` },
+        { label: "Recommended Track:", value: `${resolvedTrack}` },
+        { label: "Detected Virus:", value: `${result.fatal_flaw}` },
+      ];
+      const summaryValueColor = COLORS.cyan;
+
+      const cardX = margin - 6;
+      const cardY = y - 8;
+      const cardW = maxTextWidth + 12;
+      const lineHeight = 29;
+      const cardH = 18 + summaryLines.length * lineHeight;
+
+      if (cardY + cardH > pageHeight - margin) {
+        addNewPage();
+      }
+
+      // Main card
+      doc.setFillColor(11, 20, 36);
+      doc.setDrawColor(...COLORS.line);
+      doc.setLineWidth(0.9);
+      doc.roundedRect(cardX, cardY, cardW, cardH, 8, 8, "FD");
+
+      // Shining dual border effect
+      doc.setDrawColor(...COLORS.lineAccent);
+      doc.setLineWidth(0.6);
+      doc.roundedRect(cardX + 2, cardY + 2, cardW - 4, cardH - 4, 7, 7, "S");
+      doc.setDrawColor(...COLORS.cyan);
+      doc.setLineWidth(0.35);
+      doc.roundedRect(cardX + 5, cardY + 5, cardW - 10, cardH - 10, 6, 6, "S");
+
+      let lineY = cardY + 20;
+      summaryLines.forEach((item) => {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(13);
+        doc.setTextColor(...COLORS.white);
+        const labelText = `${item.label} `;
+        doc.text(labelText, margin, lineY);
+        const labelWidth = doc.getTextWidth(labelText);
+        doc.setTextColor(...summaryValueColor);
+        doc.text(item.value, margin + labelWidth, lineY);
+        lineY += lineHeight;
+      });
+
+      y = cardY + cardH + 18;
+    };
+
+    addLine("THE SOVEREIGN ENTITY AUDIT: PROJECT OBSIDIAN", 18, "bold", COLORS.gold, 12);
+    y += 6;
+
+    drawSummaryCard();
 
     const reportLines = getCleanReportLines(result.ai_report);
-    reportLines.forEach((line) => {
-      if (line.startsWith("THE SOVEREIGN ENTITY AUDIT: DOSSIER")) return;
-      if (line.startsWith("Section ")) {
-        addLine(line, 14, "bold", [190, 153, 46], 10);
-        return;
-      }
-      const emphasisPrefixes = [
-        "STATUS:",
-        "ARCHETYPE:",
-        "ANALYSIS:",
-        "DETECTED VIRUS:",
-        "THE STING:",
-        "THE DIAGNOSIS:",
-        "URGENCY OVERRIDE:",
-        "WARNING:",
-        "1. THE WEAPON",
-        "2. THE SHIELD",
-        "3. THE PROTOCOL",
-      ];
-      const isEmphasis = emphasisPrefixes.some((prefix) => line.startsWith(prefix));
-      const isCourseLine = line.startsWith("• Course:");
-      addLine(line, 11, isEmphasis || isCourseLine ? "bold" : "normal", isCourseLine ? [190, 153, 46] : [25, 38, 66]);
+    const sectionTitles = reportLines.filter((line) => line.startsWith("Section "));
+    sectionTitles.forEach((title, idx) => {
+      const start = reportLines.indexOf(title) + 1;
+      const end = idx < sectionTitles.length - 1 ? reportLines.indexOf(sectionTitles[idx + 1]) : reportLines.length;
+      const sectionBody = reportLines
+        .slice(start, end)
+        .filter((line) => line.trim() && !line.startsWith("THE SOVEREIGN ENTITY AUDIT: DOSSIER"));
+      drawSectionCard(title, sectionBody);
     });
 
     const timestamp = new Date().toISOString().slice(0, 10);
